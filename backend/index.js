@@ -1,56 +1,87 @@
-const express = require('express')
-const path = require('path')
-const app = express()
-const port = 8888
-const mongoose = require('mongoose')
-const model = require('./model.js')
+const express = require('express');
+const mongoose = require('mongoose');
+const cors = require('cors');
+const bodyParser = require('body-parser');
 
+const app = express();
+const port = 5000;
 
+app.use(cors());
+app.use(bodyParser.json());
 
-connectdb = async () => {
+mongoose.connect('mongodb://127.0.0.1:27017/crud-app', { useNewUrlParser: true, useUnifiedTopology: true });
 
-  try {
-    await mongoose.connect('mongodb://127.0.0.1:27017/crud');
-    console.log("Server connected to the DataBase !!")
-  } catch (error) {
-    handleError(error);
-  }
-}
+const connection = mongoose.connection;
 
-connectdb();
+connection.once('open', () => {
+  console.log('MongoDB database connection established successfully');
+});
 
-app.use((req, res, next) => {
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "POST, GET, PUT");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-  next();
-})
+const itemSchema = new mongoose.Schema({
+  name: String,
+  description: String,
+});
 
+const Item = mongoose.model('Item', itemSchema, 'crud-app');
 
-app.get('/', (req, res) => {
-  res.send('HELO HOM PAJE')
-})
-
-app.get('/list', async (req, res) => {
-  // res.send('haalo')
-  await Lists.find({ __v:0  }) 
-    .then(data => { 
-        // console.log("Database Courses:") 
-        // console.log(data); 
-        res.json({all:data})
-    })
-})
-
-app.post('/add',async(req,res)=>{
-  add = await Lists.create({
-    heading:'abc',
-    desc:'aaa'
+app.get('/items', (req, res) => {
+  Item.find((err, items) => {
+    if (err) {
+      console.log(err);
+    } else {
+      res.json(items);
+    }
   });
-  console.log(add)
+});
 
-  res.json({note:add})
-})
+app.post('/items/add', (req, res) => {
+  const newItem = new Item(req.body);
+  newItem.save()
+    .then(item => {
+      res.status(200).json(item);
+    })
+    .catch(err => {
+      res.status(400).send('Adding new item failed');
+    });
+});
+
+app.get('/items/:id', (req, res) => {
+  Item.findById(req.params.id, (err, item) => {
+    if (err) {
+      console.log(err);
+    } else {
+      res.json(item);
+    }
+  });
+});
+
+app.patch('/items/update/:id', (req, res) => {
+  Item.findByIdAndUpdate(
+    req.params.id,
+    { description: req.body.description },
+    { new: true },
+    (err, item) => {
+      if (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Internal Server Error' });
+      } else {
+        res.json(item);
+      }
+    }
+  );
+});
+
+
+app.delete('/items/:id', (req, res) => {
+  Item.findByIdAndDelete(req.params.id, (err, item) => {
+    if (err) {
+      console.log(err);
+    } else {
+      res.json(item);
+    }
+  });
+});
 
 app.listen(port, () => {
-  console.log(`Example app listening on port ${port}`)
-})
+  console.log(`Server is running on port: ${port}`);
+});
